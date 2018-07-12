@@ -1,0 +1,6 @@
+.idea
+.terraform
+terraform.tfstate.d
+kubeconfig
+terraform.tfstate
+terraform.tfstate.backup
