@@ -46,7 +46,7 @@ resource "aws_iam_role_policy_attachment" "eks-node-AmazonEC2ContainerRegistryRe
 }
 
 resource "aws_iam_instance_profile" "eks-node-instance-profile" {
-  name = "terraform-eks-demo"
+  name = "${local.env}-instance-profile"
   role = "${aws_iam_role.EKSNodeRole.name}"
 }
 
@@ -126,5 +126,3 @@ resource "aws_security_group_rule" "nodes_internode_communications" {
   security_group_id = "${aws_security_group.eks-nodes-sg.id}"
   self = true
 }
-
-
