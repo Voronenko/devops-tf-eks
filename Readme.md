@@ -1233,6 +1233,119 @@ Open the following link with a web browser to access the dashboard endpoint: htt
 
 Choose Token, paste the <authentication_token> output from the previous command into the Token field, and choose SIGN IN.
 
+## Step 4 (optional) kube2iam
+
+Check this nice cluster addition: https://github.com/jtblin/kube2iam
+
+Below goes extract from the Readme
+
+Kube2iam allows you to use IAM roles to give individual pods access to your other AWS resources. Without some way to delegate IAM access to pods, you would instead have to give your worker nodes every IAM permission that your pods need, which is cumbersome to manage and a poor security practice.
+
+First, set up RBAC for the kube2iam service account:
+
+```yaml
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube2iam
+  namespace: kube-system
+---
+apiVersion: v1
+items:
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: kube2iam
+    rules:
+      - apiGroups: [""]
+        resources: ["namespaces","pods"]
+        verbs: ["get","watch","list"]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: kube2iam
+    subjects:
+    - kind: ServiceAccount
+      name: kube2iam
+      namespace: kube-system
+    roleRef:
+      kind: ClusterRole
+      name: kube2iam
+      apiGroup: rbac.authorization.k8s.io
+kind: List
+```
+
+Then, install the kube2iam DaemonSet. The kube2iam agent will run on each worker node and intercept calls to the EC2 metadata API.  If your pods are annotated correctly, kube2iam will assume the role specified by your pod to authenticate the request, allowing your pods to access AWS resources using roles, and requiring no change to your application code. The only option we have to pay attention to specifically for EKS is to set the --host-interface option to eni+. 
+
+Kube2iam has many configuration options that are documented on the GitHub repo, but this manifest will get you started:
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kube2iam
+  namespace: kube-system
+  labels:
+    app: kube2iam
+spec:
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      name: kube2iam
+  template:
+    metadata:
+      labels:
+        name: kube2iam
+    spec:
+      serviceAccountName: kube2iam
+      hostNetwork: true
+      containers:
+        - image: jtblin/kube2iam:0.10.4
+          imagePullPolicy: Always
+          name: kube2iam
+          args:
+            - "--app-port=8181"
+            - "--auto-discover-base-arn"
+            - "--iptables=true"
+            - "--host-ip=$(HOST_IP)"
+            - "--host-interface=eni+"
+            - "--auto-discover-default-role"
+            - "--log-level=info"
+          env:
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+          ports:
+            - containerPort: 8181
+              hostPort: 8181
+              name: http
+          securityContext:
+            privileged: true
+```
+Once kube2iam is set up, you can add an annotation in the pod spec of your deployments or other pod controllers to specify which IAM role should be used for the pod like so:
+
+```yaml
+      annotations:
+        iam.amazonaws.com/role: my-role
+```
+Make sure that the roles you are using with kube2iam have been configured so that your worker nodes can assume those roles. This is why we output the worker_role_arn from the Terraform EKS module in the last step. Modify your pod roles so they can be assumed by your worker nodes by adding the following to the Trust Relationship for each role:
+
+```json
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "WORKER_ROLE_ARN"
+      },
+      "Action": "sts:AssumeRole"
+    }
+```
+Be sure to replace WORKER_ROLE_ARN with the ARN of the IAM Role that your EKS worker nodes are configured with, not the ARN of the Instance Profile.
+
+
 ## Questions?
 
 
