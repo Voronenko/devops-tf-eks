@@ -1,95 +1,116 @@
-TLDR...
+# Kubernetes Cluster Setup
 
-https://docs.aws.amazon.com/eks/latest/userguide/getting-started.html
+Important: setup follows https://docs.aws.amazon.com/eks/latest/userguide/getting-started.html as of commit date.
 
-Check variables - dependency on pre-existing pem key named EKS to access your worker instances for troubleshouting purposes
+In order to start with cluster setup, you will need:
 
-## Locals
+- Terraform
+- AWS credentials with necessary rights
+- AWS authenticator for EKS, called heptio authenticator:
+  ```
+  curl -o <PATH>/heptio-authenticator-aws https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-06-05/bin/linux/amd64/heptio-authenticator-aws
+  curl -o <PATH>/heptio-authenticator-aws.md5 https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-06-05/bin/linux/amd64/heptio-authenticator-aws.md5
+  chmod +x <PATH>/heptio-authenticator-aws
+  ```
 
-```
-  env = "${terraform.workspace}"
+## Variables
 
-  availabilityzone = "${var.AWS_REGION}a"
-  availabilityzone2 = "${var.AWS_REGION}b"
-
-  cluster_name= "${local.env}-cluster"
-```
-
-## Inputs
-
-| Name | Description | Type | Default | Required |
-|------|-------------|:----:|:-----:|:-----:|
-| AWS_ACCESS_KEY_ID |  | string | - | yes |
-| AWS_REGION |  | string | - | yes |
-| AWS_SECRET_ACCESS_KEY |  | string | - | yes |
-| ec2_keyname | key used to access instances | string | `EKS` | no |
-| private_subnet_cidr | CIDR for the Private Subnet | string | `10.11.1.0/24` | no |
-| private_subnet_cidr2 | CIDR for the Private Subnet | string | `10.11.3.0/24` | no |
-| public_subnet_cidr | CIDR for the Public Subnet | string | `10.11.0.0/24` | no |
-| public_subnet_cidr2 | CIDR for the Public Subnet | string | `10.11.2.0/24` | no |
-| vpc_cidr | CIDR for the whole VPC | string | `10.11.0.0/16` | no |
-
-## Outputs
-
-| Name | Description |
-|------|-------------|
-| config-map-aws-auth |  |
-| kubeconfig |  |
-
-
-
-Upon run you should see smth like
+Set the following environment variables:
 
 ```
-Apply complete! Resources: 36 added, 0 changed, 0 destroyed.
-
-Outputs:
+export AWS_ACCESS_KEY_ID=
+export AWS_SECRET_ACCESS_KEY=
+export TF_VAR_CLUSTER_NAME=
 ```
 
-To make cluster fully operational, after provision you should:
+## Deploy
 
-1) get cluster kubelet config via
+### Plan and apply
 
-```sh
-make kubelet-config
-
-terraform output kubeconfig > kubeconfig
-export KUBECONFIG=/home/slavko/kubernetes/tf/kubeconfig
+```bash
+$ make plan
+$ make apply
 ```
 
-after that you should be able to execute commands over your eks cluster
+Plan will check what changes Terraform needs to apply, then apply deploys the changes.
 
-```sh
-kubectl get nodes
-No resources found.
+The operation takes around 20 minutes.
+
+### Configure
+
+Once the deployment is done, the kubeconfig will let kubectl know how to connect to cluster:
+```bash
+$ make kubeconfig
+run the suggested EXPORT
 ```
 
-2) to allow nodes to join, you need to provide cluster with additional config map
+To make workers join the cluster they need to be have a role associated with it:
+```bash
+$ make config-map-aws-auth
+```
+and wait for nodes to appear.
+
+Your are now ready.
+
+### Login into worker instances
+
+To login into the instances the private key can be generated from the terraform output:
+
+```bash
+$ make private-key
+```
+
+Prior login you would need to switch the gateway used by the workers private route table from the nat to the internet one
+ and open the SSH port on the worker security group.
+
+### Destroy
+
+As simple as `make destroy`.
+
+## Kubernetes dashboard
+
+Follow the documentation here https://docs.aws.amazon.com/eks/latest/userguide/dashboard-tutorial.html
+
+
+### Working with multiple clusters at a time
+
+By default, terraform creates one state file, that you will need to replace, if you are working with another cluster.
+To smoothly work with multiple clusters, you can use terraform workspaces (https://www.terraform.io/docs/state/workspaces.html)
+
+For example, you can create workspace by cluster name before provisioning cluster, and use `${terraform.workspace}`
+as a cluster name  `cluster_name= "${terraform.workspace}-cluster"`
+
+`terraform workspace new dummy`
+
+view workspaces:
 
 ```
-make config-map-aws-auth
-terraform output config-map-aws-auth > config-map-aws-auth.yaml
-kubectl apply -f config-map-aws-auth.yaml
-configmap "aws-auth" created
-kubectl get nodes --watch
-NAME                         STATUS     ROLES     AGE       VERSION
-ip-10-11-1-21.ec2.internal   NotReady   <none>    1s        v1.10.3
-ip-10-11-3-220.ec2.internal   NotReady   <none>    0s        v1.10.3
-...
-ip-10-11-1-21.ec2.internal   Ready     <none>    31s       v1.10.3
-ip-10-11-3-220.ec2.internal   Ready     <none>    31s       v1.10.3
+terraform workspace list
+  default
+* dummy
 ```
 
-3) You should be able to run pods and services
+select specific workplace:
 
 ```
-kubectl run  --image busybox pod-test --restart=Never
-pod "pod-test" created
-┌[tf]>
-└──➜ kubectl get pods
-NAME       READY     STATUS      RESTARTS   AGE
-pod-test   0/1       Completed   0          8s
+terraform workspace select dummy
 ```
+
+### Credits
+
+https://github.com/TizianoPerrucci  - Formatting, Readme changes, 1.16 upgrade
+
+### Further reading:
+
+Perhaps try  https://github.com/aws-samples/eks-workshop
+
+
+/ end of compact notes
+
+
+===========================================================================================================================
+
+Below is the original readme as was for 1.11, for historic purposes
 
 Long story:
 
@@ -1270,3 +1291,4 @@ where in message you will get hint about the issue
 Troubleshouting hints from AWS can be found on
 
 https://docs.aws.amazon.com/eks/latest/userguide/troubleshooting.html
+
