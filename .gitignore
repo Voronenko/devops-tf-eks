@@ -1,6 +1,15 @@
+# Infrastructure ignores.
 .idea
 .terraform
 terraform.tfstate.d
-kubeconfig
 terraform.tfstate
 terraform.tfstate.backup
+
+config-map-aws-auth.yaml
+kubeconfig
+
+# The ssh key
+eks_rsa*
+
+# Terraform plan
+eks.deploy
