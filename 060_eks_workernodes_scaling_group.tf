@@ -10,7 +10,7 @@
 data "aws_ami" "eks-worker" {
   filter {
     name   = "name"
-    values = ["eks-worker-*"]
+    values = ["amazon-eks-node-${aws_eks_cluster.eks-cluster.version}*"]
   }
 
   most_recent = true
@@ -25,43 +25,35 @@ data "aws_ami" "eks-worker" {
 locals {
   eks-node-userdata = <<USERDATA
 #!/bin/bash -xe
-
-CA_CERTIFICATE_DIRECTORY=/etc/kubernetes/pki
-CA_CERTIFICATE_FILE_PATH=$CA_CERTIFICATE_DIRECTORY/ca.crt
-mkdir -p $CA_CERTIFICATE_DIRECTORY
-echo "${aws_eks_cluster.eks-cluster.certificate_authority.0.data}" | base64 -d >  $CA_CERTIFICATE_FILE_PATH
-INTERNAL_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
-sed -i s,MASTER_ENDPOINT,${aws_eks_cluster.eks-cluster.endpoint},g /var/lib/kubelet/kubeconfig
-sed -i s,CLUSTER_NAME,${local.cluster_name},g /var/lib/kubelet/kubeconfig
-sed -i s,REGION,${var.AWS_REGION},g /etc/systemd/system/kubelet.service
-sed -i s,MAX_PODS,20,g /etc/systemd/system/kubelet.service
-sed -i s,MASTER_ENDPOINT,${aws_eks_cluster.eks-cluster.endpoint},g /etc/systemd/system/kubelet.service
-sed -i s,INTERNAL_IP,$INTERNAL_IP,g /etc/systemd/system/kubelet.service
-DNS_CLUSTER_IP=10.100.0.10
-if [[ $INTERNAL_IP == 10.* ]] ; then DNS_CLUSTER_IP=172.20.0.10; fi
-sed -i s,DNS_CLUSTER_IP,$DNS_CLUSTER_IP,g /etc/systemd/system/kubelet.service
-sed -i s,CERTIFICATE_AUTHORITY_FILE,$CA_CERTIFICATE_FILE_PATH,g /var/lib/kubelet/kubeconfig
-sed -i s,CLIENT_CA_FILE,$CA_CERTIFICATE_FILE_PATH,g  /etc/systemd/system/kubelet.service
-systemctl daemon-reload
-systemctl restart kubelet
+/etc/eks/bootstrap.sh ${local.cluster_name}
 USERDATA
+}
+
+resource "tls_private_key" "eks_rsa" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "eks-key-pair" {
+  key_name   = "eks-deployer-${local.cluster_name}"
+  public_key = tls_private_key.eks_rsa.public_key_openssh
 }
 
 resource "aws_launch_configuration" "eks-launch-configuration" {
   associate_public_ip_address = true
-  iam_instance_profile        = "${aws_iam_instance_profile.eks-node-instance-profile.name}"
-  image_id                    = "${data.aws_ami.eks-worker.id}"
+  iam_instance_profile        = aws_iam_instance_profile.eks-node-instance-profile.name
+  image_id                    = data.aws_ami.eks-worker.id
   instance_type               = "t2.small"
+  spot_price                  = "0.008"
   name_prefix                 = "eks-${local.cluster_name}"
-  security_groups             = ["${aws_security_group.eks-nodes-sg.id}"]
-  user_data_base64            = "${base64encode(local.eks-node-userdata)}"
-  key_name                    = "${var.ec2_keyname}"
+  security_groups             = [aws_security_group.eks-nodes-sg.id]
+  user_data_base64            = base64encode(local.eks-node-userdata)
+  key_name                    = aws_key_pair.eks-key-pair.key_name
 
   lifecycle {
     create_before_destroy = true
   }
 }
-
 
 //Finally, we create an AutoScaling Group that actually launches EC2 instances based on the
 //AutoScaling Launch Configuration.
@@ -70,17 +62,16 @@ resource "aws_launch_configuration" "eks-launch-configuration" {
 //and Kubernetes to discover and manage compute resources.
 
 resource "aws_autoscaling_group" "eks-autoscaling-group" {
-  desired_capacity     = 2
-  launch_configuration = "${aws_launch_configuration.eks-launch-configuration.id}"
+  desired_capacity     = var.SCALING_DESIRED_CAPACITY
+  launch_configuration = aws_launch_configuration.eks-launch-configuration.id
   max_size             = 2
-  min_size             = 1
+  min_size             = 0
   name                 = "eks-${local.cluster_name}"
-  vpc_zone_identifier  = ["${aws_subnet.eks-private.id}", "${aws_subnet.eks-private-2.id}"]
-
+  vpc_zone_identifier  = [aws_subnet.eks-private.id, aws_subnet.eks-private-2.id]
 
   tag {
     key                 = "Environment"
-    value               = "${local.env}"
+    value               = var.CLUSTER_NAME
     propagate_at_launch = true
   }
 
@@ -96,23 +87,37 @@ resource "aws_autoscaling_group" "eks-autoscaling-group" {
     propagate_at_launch = true
   }
 }
-
+//You can specify a recurrence schedule, in UTC, using the Unix cron syntax format
+resource "aws_autoscaling_schedule" "scale-down" {
+  scheduled_action_name  = "scale-down"
+  min_size               = 0
+  max_size               = 0
+  desired_capacity       = 0
+  recurrence             = "00 23 * * *" #Mon-Sun at 12AM CET
+  autoscaling_group_name = aws_autoscaling_group.eks-autoscaling-group.name
+}
+resource "aws_autoscaling_schedule" "scale-up" {
+  scheduled_action_name  = "scale-up"
+  min_size               = 0
+  max_size               = 2
+  desired_capacity       = 2
+  recurrence             = "00 07 * * *" #Mon-Sun at 08AM CET
+  autoscaling_group_name = aws_autoscaling_group.eks-autoscaling-group.name
+}
 //NOTE: At this point, your Kubernetes cluster will have running masters and worker nodes, however, the worker nodes will
 //not be able to join the Kubernetes cluster quite yet. The next section has the required Kubernetes configuration to
 //enable the worker nodes to join the cluster.
-
 
 //Required Kubernetes Configuration to Join Worker Nodes
 //The EKS service does not provide a cluster-level API parameter or resource to automatically configure the underlying
 //Kubernetes cluster to allow worker nodes to join the cluster via AWS IAM role authentication.
 
-
 //To output an IAM Role authentication ConfigMap from your Terraform configuration:
+
+data "aws_caller_identity" "current" {}
 
 locals {
   config-map-aws-auth = <<CONFIGMAPAWSAUTH
-
-
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -125,13 +130,20 @@ data:
       groups:
         - system:bootstrappers
         - system:nodes
+    - rolearn: arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/Administrator
+      username: administrator
+      groups:
+        - system:masters
 CONFIGMAPAWSAUTH
 }
 
 output "config-map-aws-auth" {
-  value = "${local.config-map-aws-auth}"
+  value = local.config-map-aws-auth
 }
 
+output "eks_rsa" {
+  value = tls_private_key.eks_rsa.private_key_pem
+}
 
 //Run
 //
