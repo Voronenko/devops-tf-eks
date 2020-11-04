@@ -6,12 +6,13 @@ In order to start with cluster setup, you will need:
 
 - Terraform
 - AWS credentials with necessary rights
-- AWS authenticator for EKS, called heptio authenticator:
+- AWS authenticator for EKS, called aws-iam-authenticator:
+  ```sh
+   curl -o ~/dotfiles/bin/aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.18.8/2020-09-18/bin/linux/amd64/aws-iam-authenticator
+   chmod +x ~/dotfiles/bin/aws-iam-authenticator
   ```
-  curl -o <PATH>/heptio-authenticator-aws https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-06-05/bin/linux/amd64/heptio-authenticator-aws
-  curl -o <PATH>/heptio-authenticator-aws.md5 https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-06-05/bin/linux/amd64/heptio-authenticator-aws.md5
-  chmod +x <PATH>/heptio-authenticator-aws
-  ```
+
+Note, that with fresh aws-cli you can use aws-cli subcommands to achieve the same effect.   
 
 ## Variables
 
@@ -22,6 +23,10 @@ export AWS_ACCESS_KEY_ID=
 export AWS_SECRET_ACCESS_KEY=
 export TF_VAR_CLUSTER_NAME=
 ```
+
+<!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
+<!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
+
 
 ## Deploy
 

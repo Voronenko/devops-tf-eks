@@ -6,8 +6,4 @@
 //Associated IAM Roles and Policies:
 //Operator managed access resources for EKS and worker node instances
 
-provider "aws" {
-  version = "~> 2.0"
-  region  = var.AWS_REGION
-}
 
