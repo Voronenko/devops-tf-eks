@@ -611,16 +611,14 @@ resource "aws_security_group" "eks-control-plane-sg" {
 Download aws authenticator, kind of
 
 ```sh
-install-k8s-heptio-authenticator-aws:
-        curl -o ~/dotfiles/docker/heptio-authenticator-aws https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-06-05/bin/linux/amd64/heptio-authenticator-aws
-        curl -o ~/dotfiles/docker/heptio-authenticator-aws.md5 https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-06-05/bin/linux/amd64/heptio-authenticator-aws.md5
-        chmod +x ~/dotfiles/docker/heptio-authenticator-aws
+   curl -o ~/dotfiles/bin/aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.18.8/2020-09-18/bin/linux/amd64/aws-iam-authenticator
+   chmod +x ~/dotfiles/bin/aws-iam-authenticator
 ```
 
 Validate by running
 
 ```sh
-heptio-authenticator-aws help
+aws-iam-authenticator help
 ```
 
 Check if you have latest awscli installed, you should get output similar to one below
@@ -690,7 +688,7 @@ users:
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1alpha1
-      command: heptio-authenticator-aws
+      command: aws-iam-authenticator
       args:
         - "token"
         - "-i"
@@ -767,7 +765,7 @@ users:
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1alpha1
-      command: heptio-authenticator-aws
+      command: aws-iam-authenticator
       args:
         - "token"
         - "-i"
