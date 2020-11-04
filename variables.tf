@@ -182,7 +182,3 @@ variable "namespaces" {
 }
 
 # /Application specific variables
-
-locals {
-  common_tags = {
-    "Environment" = var.CLUSTER_NAME

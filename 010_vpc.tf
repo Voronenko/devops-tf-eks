@@ -203,4 +203,3 @@ resource "aws_route_table_association" "eks-private-2" {
   subnet_id      = aws_subnet.eks-private-2.id
   route_table_id = aws_route_table.private_route_table_2.id
 }
-

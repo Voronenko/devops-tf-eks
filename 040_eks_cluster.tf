@@ -53,4 +53,3 @@ KUBECONFIG
 output "kubeconfig" {
   value = local.kubeconfig
 }
-

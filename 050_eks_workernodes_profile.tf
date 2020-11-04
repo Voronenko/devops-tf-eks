@@ -126,4 +126,3 @@ resource "aws_security_group_rule" "nodes_internode_communications" {
   security_group_id = aws_security_group.eks-nodes-sg.id
   self              = true
 }
-

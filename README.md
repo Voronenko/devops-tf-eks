@@ -12,7 +12,7 @@ In order to start with cluster setup, you will need:
    chmod +x ~/dotfiles/bin/aws-iam-authenticator
   ```
 
-Note, that with fresh aws-cli you can use aws-cli subcommands to achieve the same effect.   
+Note, that with fresh aws-cli you can use aws-cli subcommands to achieve the same effect.
 
 ## Variables
 
@@ -25,6 +25,71 @@ export TF_VAR_CLUSTER_NAME=
 ```
 
 <!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
+## Requirements
+
+| Name | Version |
+|------|---------|
+| terraform | >= 0.12 |
+| aws | ~> 3.10 |
+
+## Providers
+
+| Name | Version |
+|------|---------|
+| aws | ~> 3.10 |
+| helm | n/a |
+| kubernetes | n/a |
+| tls | n/a |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| AWS\_ACCESS\_KEY\_ID | n/a | `any` | n/a | yes |
+| AWS\_REGION | n/a | `any` | n/a | yes |
+| AWS\_SECRET\_ACCESS\_KEY | n/a | `any` | n/a | yes |
+| CLUSTER\_NAME | n/a | `any` | n/a | yes |
+| SCALING\_DESIRED\_CAPACITY | n/a | `number` | `2` | no |
+| domain | n/a | `string` | `"eks.voronenko.net."` | no |
+| eks\_oidc\_root\_ca\_thumbprint | Thumbprint of Root CA for EKS OIDC, Valid until 2037 | `string` | `"9e99a48a9960b14926bb7f3b02e22da2b0ab7280"` | no |
+| enable\_irsa | Whether to create OpenID Connect Provider for EKS to enable IRSA | `bool` | `false` | no |
+| external\_dns\_helm\_chart\_name | n/a | `string` | `"external-dns"` | no |
+| external\_dns\_helm\_chart\_version | n/a | `string` | `"3.5.1"` | no |
+| external\_dns\_helm\_release\_name | n/a | `string` | `"external-dns"` | no |
+| external\_dns\_helm\_repo\_url | n/a | `string` | `"https://charts.bitnami.com/bitnami"` | no |
+| external\_dns\_k8s\_namespace | The k8s namespace in which the alb-ingress service account has been created | `string` | `"kube-system"` | no |
+| external\_dns\_k8s\_service\_account\_name | The k8s external-dns service account name, ideally should match to helm chart expectations | `string` | `"external-dns"` | no |
+| external\_dns\_settings | Additional settings for external-dns helm chart check https://github.com/bitnami/charts/tree/master/bitnami/external-dns | `map(any)` | `{}` | no |
+| ingress\_alb\_helm\_chart\_name | n/a | `string` | `"aws-load-balancer-controller"` | no |
+| ingress\_alb\_helm\_chart\_version | n/a | `string` | `"1.0.3"` | no |
+| ingress\_alb\_helm\_release\_name | n/a | `string` | `"aws-load-balancer-controller"` | no |
+| ingress\_alb\_helm\_repo\_url | n/a | `string` | `"https://aws.github.io/eks-charts"` | no |
+| ingress\_alb\_k8s\_dummy\_dependency | TODO: eliminatem allows dirty re-drop | `any` | `null` | no |
+| ingress\_alb\_k8s\_namespace | The k8s namespace in which the alb-ingress service account has been created | `string` | `"kube-system"` | no |
+| ingress\_alb\_k8s\_service\_account\_name | The k8s alb-ingress service account name, should match to helm chart expectations | `string` | `"aws-load-balancer-controller"` | no |
+| ingress\_alb\_settings | Additional settings for Helm chart check https://artifacthub.io/packages/helm/helm-incubator/aws-alb-ingress-controller | `map(any)` | `{}` | no |
+| namespaces | List of namespaces to be created in our EKS Cluster. | `list(string)` | `[]` | no |
+| private\_subnet\_cidr | CIDR for the Private Subnet | `string` | `"10.11.1.0/24"` | no |
+| private\_subnet\_cidr2 | CIDR for the Private Subnet | `string` | `"10.11.3.0/24"` | no |
+| public\_subnet\_cidr | CIDR for the Public Subnet | `string` | `"10.11.0.0/24"` | no |
+| public\_subnet\_cidr2 | CIDR for the Public Subnet | `string` | `"10.11.2.0/24"` | no |
+| vpc\_cidr | CIDR for the whole VPC | `string` | `"10.11.0.0/16"` | no |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| cluster\_arn | The Amazon Resource Name (ARN) of the cluster. |
+| cluster\_certificate\_authority\_data | Nested attribute containing certificate-authority-data for your cluster. This is the base64 encoded certificate data required to communicate with your cluster. |
+| cluster\_endpoint | The endpoint for your EKS Kubernetes API. |
+| cluster\_id | The id of the EKS cluster. |
+| cluster\_oidc\_issuer\_url | The URL on the EKS cluster OIDC Issuer |
+| cluster\_version | The Kubernetes server version for the EKS cluster. |
+| config-map-aws-auth | n/a |
+| eks\_rsa | n/a |
+| kubeconfig | n/a |
+| oidc\_provider\_arn | The ARN of the OIDC Provider if `enable_irsa = true`. |
+
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
 
 
@@ -1302,7 +1367,7 @@ items:
 kind: List
 ```
 
-Then, install the kube2iam DaemonSet. The kube2iam agent will run on each worker node and intercept calls to the EC2 metadata API.  If your pods are annotated correctly, kube2iam will assume the role specified by your pod to authenticate the request, allowing your pods to access AWS resources using roles, and requiring no change to your application code. The only option we have to pay attention to specifically for EKS is to set the --host-interface option to eni+. 
+Then, install the kube2iam DaemonSet. The kube2iam agent will run on each worker node and intercept calls to the EC2 metadata API.  If your pods are annotated correctly, kube2iam will assume the role specified by your pod to authenticate the request, allowing your pods to access AWS resources using roles, and requiring no change to your application code. The only option we have to pay attention to specifically for EKS is to set the --host-interface option to eni+.
 
 Kube2iam has many configuration options that are documented on the GitHub repo, but this manifest will get you started:
 
@@ -1409,4 +1474,3 @@ where in message you will get hint about the issue
 Troubleshouting hints from AWS can be found on
 
 https://docs.aws.amazon.com/eks/latest/userguide/troubleshooting.html
-
