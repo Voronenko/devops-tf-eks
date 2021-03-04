@@ -30,3 +30,15 @@ private-key:
 	kubeconfig \
 	config-map-aws-auth \
 	private-key
+
+istio-init-demo:
+	istioctl manifest apply --set profile=demo
+	kubectl -n istio-system get svc
+	kubectl -n istio-system get pods
+
+istio-finalize-demo:
+	istioctl manifest generate --set profile=demo | kubectl delete -f -
+	kubectl delete ns bookinfo || true
+	kubectl delete ns istio-system || true
+	kubectl -n istio-system get svc || true
+	kubectl -n istio-system get pods || true
