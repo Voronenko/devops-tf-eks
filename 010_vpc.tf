@@ -57,6 +57,8 @@ resource "aws_subnet" "eks-private" {
   cidr_block        = var.private_subnet_cidr
   availability_zone = local.availabilityzone
 
+  map_public_ip_on_launch = var.use_simple_vpc
+
   tags = merge(
     local.common_tags,
     {
@@ -70,6 +72,8 @@ resource "aws_subnet" "eks-private-2" {
 
   cidr_block        = var.private_subnet_cidr2
   availability_zone = local.availabilityzone2
+
+  map_public_ip_on_launch = var.use_simple_vpc
 
   tags = merge(
     local.common_tags,
@@ -91,14 +95,16 @@ resource "aws_internet_gateway" "igw" {
 // reserve elastic ip for nat gateway
 
 resource "aws_eip" "nat_eip" {
-  vpc = true
+  count = var.use_simple_vpc ? 0 : 1
+  vpc   = true
   tags = {
     Environment = var.CLUSTER_NAME
   }
 }
 
 resource "aws_eip" "nat_eip_2" {
-  vpc = true
+  count = var.use_simple_vpc ? 0 : 1
+  vpc   = true
   tags = {
     Environment = var.CLUSTER_NAME
   }
@@ -106,7 +112,8 @@ resource "aws_eip" "nat_eip_2" {
 
 // create nat once internet gateway created
 resource "aws_nat_gateway" "nat_gateway" {
-  allocation_id = aws_eip.nat_eip.id
+  count         = var.use_simple_vpc ? 0 : 1
+  allocation_id = aws_eip.nat_eip.0.id
   subnet_id     = aws_subnet.eks-public.id
   depends_on    = [aws_internet_gateway.igw]
   tags = {
@@ -115,7 +122,8 @@ resource "aws_nat_gateway" "nat_gateway" {
 }
 
 resource "aws_nat_gateway" "nat_gateway_2" {
-  allocation_id = aws_eip.nat_eip_2.id
+  count         = var.use_simple_vpc ? 0 : 1
+  allocation_id = aws_eip.nat_eip_2.0.id
   subnet_id     = aws_subnet.eks-public-2.id
   depends_on    = [aws_internet_gateway.igw]
   tags = {
@@ -142,16 +150,32 @@ resource "aws_route_table" "private_route_table_2" {
   }
 }
 
-resource "aws_route" "private_route" {
+resource "aws_route" "private_route_nat" {
+  count                  = var.use_simple_vpc ? 0 : 1
   route_table_id         = aws_route_table.private_route_table.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.nat_gateway.id
+  nat_gateway_id         = aws_nat_gateway.nat_gateway.0.id
 }
 
-resource "aws_route" "private_route_2" {
+resource "aws_route" "private_route_2_nat" {
+  count                  = var.use_simple_vpc ? 0 : 1
   route_table_id         = aws_route_table.private_route_table_2.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.nat_gateway_2.id
+  nat_gateway_id         = aws_nat_gateway.nat_gateway_2.0.id
+}
+
+resource "aws_route" "private_route_igw" {
+  count                  = var.use_simple_vpc ? 1 : 0
+  route_table_id         = aws_route_table.private_route_table.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.igw.id
+}
+
+resource "aws_route" "private_route_2_igw" {
+  count                  = var.use_simple_vpc ? 1 : 0
+  route_table_id         = aws_route_table.private_route_table_2.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.igw.id
 }
 
 resource "aws_route_table" "eks-public" {

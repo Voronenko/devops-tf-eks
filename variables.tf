@@ -7,19 +7,25 @@ variable "SCALING_DESIRED_CAPACITY" {
 }
 
 variable "CLUSTER_NAME" {
+  default = "istio"
+}
+
+variable "cluster_version" {
+  default     = "1.18"
+  description = "Version of the kubernetes cluster"
 }
 
 variable "enable_irsa" {
   description = "Whether to create OpenID Connect Provider for EKS to enable IRSA"
   type        = bool
-  default     = false
+  default     = true
 }
 
 locals {
   availabilityzone  = "${var.AWS_REGION}a"
   availabilityzone2 = "${var.AWS_REGION}b"
 
-  cluster_name = "${var.CLUSTER_NAME}-cluster"
+  cluster_name = var.CLUSTER_NAME
 
   //  NOTE: The usage of the specific kubernetes.io/cluster/*
   //  resource tags below are required for EKS and Kubernetes to discover
@@ -45,6 +51,12 @@ variable "vpc_cidr" {
 }
 
 // Primary pair of public/private networks
+
+variable "use_simple_vpc" {
+  default     = true
+  type        = bool
+  description = ""
+}
 
 variable "public_subnet_cidr" {
   description = "CIDR for the Public Subnet"
@@ -75,6 +87,11 @@ variable "eks_oidc_root_ca_thumbprint" {
 }
 
 # ingress
+
+variable "option_alb_ingress_enabled" {
+  default = false
+
+}
 
 variable "ingress_alb_helm_chart_name" {
   type    = string
@@ -113,7 +130,7 @@ variable "ingress_alb_k8s_service_account_name" {
 
 variable "ingress_alb_k8s_dummy_dependency" {
   default     = null
-  description = "TODO: eliminatem allows dirty re-drop"
+  description = "TODO: eliminate allows dirty re-drop"
 }
 
 variable "ingress_alb_settings" {
@@ -126,6 +143,11 @@ variable "ingress_alb_settings" {
 # /ingress
 
 # external dns
+
+variable "option_external_dns_enabled" {
+  default = false
+  type    = bool
+}
 
 variable "external_dns_helm_chart_name" {
   type    = string
@@ -172,7 +194,7 @@ variable "external_dns_settings" {
 # Application specific variables
 
 variable "domain" {
-  default = "eks.voronenko.net."
+  default = ""
 }
 
 variable "namespaces" {

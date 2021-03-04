@@ -4,7 +4,7 @@
 resource "aws_eks_cluster" "eks-cluster" {
   name     = local.cluster_name
   role_arn = aws_iam_role.EKSClusterRole.arn
-  version  = "1.16"
+  version  = var.cluster_version
 
   vpc_config {
     security_group_ids = [aws_security_group.eks-control-plane-sg.id]
@@ -52,4 +52,10 @@ KUBECONFIG
 
 output "kubeconfig" {
   value = local.kubeconfig
+}
+
+resource "local_file" "kubeconfig" {
+  content         = local.kubeconfig
+  filename        = "${path.root}/kubeconfig"
+  file_permission = "0644"
 }

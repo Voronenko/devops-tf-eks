@@ -29,17 +29,17 @@ export TF_VAR_CLUSTER_NAME=
 
 | Name | Version |
 |------|---------|
-| terraform | >= 0.12 |
-| aws | ~> 3.10 |
+| terraform | >= 0.14 |
+| aws | ~> 3.29.1 |
+| helm | ~> 2.0.2 |
+| kubernetes | ~> 1.13.3 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| aws | ~> 3.10 |
-| helm | n/a |
-| kubernetes | n/a |
-| tls | n/a |
+| aws | ~> 3.29.1 |
+| local | n/a |
 
 ## Inputs
 
@@ -48,11 +48,12 @@ export TF_VAR_CLUSTER_NAME=
 | AWS\_ACCESS\_KEY\_ID | n/a | `any` | n/a | yes |
 | AWS\_REGION | n/a | `any` | n/a | yes |
 | AWS\_SECRET\_ACCESS\_KEY | n/a | `any` | n/a | yes |
-| CLUSTER\_NAME | n/a | `any` | n/a | yes |
+| CLUSTER\_NAME | n/a | `string` | `"istio"` | no |
 | SCALING\_DESIRED\_CAPACITY | n/a | `number` | `2` | no |
-| domain | n/a | `string` | `"eks.voronenko.net."` | no |
+| cluster\_version | Version of the kubernetes cluster | `string` | `"1.18"` | no |
+| domain | n/a | `string` | `""` | no |
 | eks\_oidc\_root\_ca\_thumbprint | Thumbprint of Root CA for EKS OIDC, Valid until 2037 | `string` | `"9e99a48a9960b14926bb7f3b02e22da2b0ab7280"` | no |
-| enable\_irsa | Whether to create OpenID Connect Provider for EKS to enable IRSA | `bool` | `false` | no |
+| enable\_irsa | Whether to create OpenID Connect Provider for EKS to enable IRSA | `bool` | `true` | no |
 | external\_dns\_helm\_chart\_name | n/a | `string` | `"external-dns"` | no |
 | external\_dns\_helm\_chart\_version | n/a | `string` | `"3.5.1"` | no |
 | external\_dns\_helm\_release\_name | n/a | `string` | `"external-dns"` | no |
@@ -64,15 +65,18 @@ export TF_VAR_CLUSTER_NAME=
 | ingress\_alb\_helm\_chart\_version | n/a | `string` | `"1.0.3"` | no |
 | ingress\_alb\_helm\_release\_name | n/a | `string` | `"aws-load-balancer-controller"` | no |
 | ingress\_alb\_helm\_repo\_url | n/a | `string` | `"https://aws.github.io/eks-charts"` | no |
-| ingress\_alb\_k8s\_dummy\_dependency | TODO: eliminatem allows dirty re-drop | `any` | `null` | no |
+| ingress\_alb\_k8s\_dummy\_dependency | TODO: eliminate allows dirty re-drop | `any` | `null` | no |
 | ingress\_alb\_k8s\_namespace | The k8s namespace in which the alb-ingress service account has been created | `string` | `"kube-system"` | no |
 | ingress\_alb\_k8s\_service\_account\_name | The k8s alb-ingress service account name, should match to helm chart expectations | `string` | `"aws-load-balancer-controller"` | no |
 | ingress\_alb\_settings | Additional settings for Helm chart check https://artifacthub.io/packages/helm/helm-incubator/aws-alb-ingress-controller | `map(any)` | `{}` | no |
 | namespaces | List of namespaces to be created in our EKS Cluster. | `list(string)` | `[]` | no |
+| option\_alb\_ingress\_enabled | n/a | `bool` | `false` | no |
+| option\_external\_dns\_enabled | n/a | `bool` | `false` | no |
 | private\_subnet\_cidr | CIDR for the Private Subnet | `string` | `"10.11.1.0/24"` | no |
 | private\_subnet\_cidr2 | CIDR for the Private Subnet | `string` | `"10.11.3.0/24"` | no |
 | public\_subnet\_cidr | CIDR for the Public Subnet | `string` | `"10.11.0.0/24"` | no |
 | public\_subnet\_cidr2 | CIDR for the Public Subnet | `string` | `"10.11.2.0/24"` | no |
+| use\_simple\_vpc | n/a | `bool` | `true` | no |
 | vpc\_cidr | CIDR for the whole VPC | `string` | `"10.11.0.0/16"` | no |
 
 ## Outputs
@@ -85,8 +89,6 @@ export TF_VAR_CLUSTER_NAME=
 | cluster\_id | The id of the EKS cluster. |
 | cluster\_oidc\_issuer\_url | The URL on the EKS cluster OIDC Issuer |
 | cluster\_version | The Kubernetes server version for the EKS cluster. |
-| config-map-aws-auth | n/a |
-| eks\_rsa | n/a |
 | kubeconfig | n/a |
 | oidc\_provider\_arn | The ARN of the OIDC Provider if `enable_irsa = true`. |
 
