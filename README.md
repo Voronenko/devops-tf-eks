@@ -14,6 +14,27 @@ In order to start with cluster setup, you will need:
 
 Note, that with fresh aws-cli you can use aws-cli subcommands to achieve the same effect.
 
+## Upgrade 1.18->1.19 via aws UI
+
+Upgrade kube version via aws console.  After that, upgrade all nodegroups to the image recommended for the new cluster version.
+You will need to update kube-proxy and coredns images manually. Check proper versions at https://docs.aws.amazon.com/eks/latest/userguide/managing-coredns.html
+
+```sh
+kubectl set image daemonset.apps/kube-proxy -n kube-system kube-proxy=602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/kube-proxy:v1.19.6-eksbuild.1
+
+kubectl set image --namespace kube-system deployment.apps/coredns coredns=602401143452.dkr.ecr.eu-west-1.amazonaws.com/eks/coredns:v1.8.0-eksbuild.1
+```
+
+Last step would be updating cni, do not forget to update image registry to the registry located in your cluster region
+
+```sh
+curl -o aws-k8s-cni.yaml https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.5/config/v1.7/aws-k8s-cni.yaml
+vim aws-k8s-cni.yaml
+%s/us-west-2/eu-central-1/g
+kubectl apply -f aws-k8s-cni.yaml
+```
+
+
 ## Variables
 
 Set the following environment variables:
